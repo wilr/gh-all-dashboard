@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Dashboard</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #1b1f24; --muted: #656d76; --line: #e3e6ea;
+  --hover: #f0f3f6; --sel: #e7f0ff; --accent: #0969da;
+  --ok: #1a7f37; --bad: #cf222e; --warn: #9a6700; --draft: #6e7781;
+  --ok-bg: #dafbe1; --bad-bg: #ffebe9; --warn-bg: #fff8c5; --chip: #eef1f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --panel: #151b23; --text: #e6edf3; --muted: #8d96a0; --line: #2a313c;
+    --hover: #1c232d; --sel: #1a2a40; --accent: #4493f8;
+    --ok: #3fb950; --bad: #f85149; --warn: #d29922; --draft: #8d96a0;
+    --ok-bg: #12261a; --bad-bg: #2d1416; --warn-bg: #2b2111; --chip: #212833;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--accent); text-decoration: underline; }
+button, select, input { font: inherit; color: inherit; }
+
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+h1 { font-size: 16px; margin: 0; font-weight: 600; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; font-variant-numeric: tabular-nums; }
+.stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px 4px 8px;
+  background: var(--chip); border: 1px solid var(--line); border-radius: 8px; line-height: 1.2; }
+.stat .n { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+.stat .l { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat.warn-stat { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: var(--warn-bg); }
+.stat.warn-stat .n { color: var(--warn); }
+.stat.bad-stat { border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); background: var(--bad-bg); }
+.stat.bad-stat .n { color: var(--bad); }
+.stat.ok-stat { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); background: var(--ok-bg); }
+.stat.ok-stat .n { color: var(--ok); }
+.spacer { flex: 1; }
+#q { width: 260px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters button, .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.filters button[aria-pressed="true"] { background: var(--sel); border-color: var(--accent); color: var(--accent); }
+.btn:hover { background: var(--hover); text-decoration: none; }
+select { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 6px; }
+#status { color: var(--muted); font-size: 12px; }
+
+main { padding: 16px 20px 60px; max-width: 1400px; margin: 0 auto; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: clip; }
+/* Sticks below the page header; box-shadow stands in for border-bottom, which collapsed borders drop when stuck. */
+th { position: sticky; top: var(--header-h, 0px); z-index: 4; background: var(--panel); box-shadow: inset 0 -1px 0 var(--line);
+  text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 8px 12px;
+  cursor: pointer; user-select: none; white-space: nowrap; }
+th.num, td.num { text-align: right; }
+th[data-dir="asc"]::after { content: " ▲"; } th[data-dir="desc"]::after { content: " ▼"; }
+tr.repo td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr.repo { cursor: pointer; }
+tr.repo:hover td { background: var(--hover); }
+tr.repo.sel td { background: var(--sel); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zero { color: var(--muted); opacity: .5; }
+.name { font-weight: 600; }
+.owner { color: var(--muted); font-weight: 400; }
+.desc { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
+.tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+.age { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; cursor: help; margin-left: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 10px; font-size: 12px; font-weight: 600; margin-left: 4px; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.bad { color: var(--bad); background: var(--bad-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.none { color: var(--muted); background: var(--chip); }
+.badge { font-size: 11px; padding: 0 5px; border-radius: 4px; background: var(--chip); color: var(--muted); margin-left: 6px; font-weight: 500; }
+.actions { white-space: nowrap; text-align: right; display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--muted); cursor: pointer; border: 0; background: transparent; padding: 0; }
+.icon:hover { background: var(--hover); color: var(--accent); text-decoration: none; }
+.icon.delete:hover { color: var(--bad); background: var(--bad-bg); }
+.icon svg { width: 15px; height: 15px; fill: currentColor; }
+tr.repo, tr.detail { transition: opacity .28s ease, transform .28s ease; }
+tr.repo.slide-out, tr.detail.slide-out { opacity: 0; transform: translateX(40px); pointer-events: none; }
+
+.ignored-section { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--line); }
+.ignored-section h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.ignored-section .hint { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+.ignored-section pre { margin: 0; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 320px; }
+.ignored-section pre .pat { color: var(--text); }
+.ignored-section .empty-ign { color: var(--muted); font-size: 13px; }
+.ignored-section .empty-ign code { font-size: 12px; }
+
+tr.detail > td { padding: 0; border-bottom: 1px solid var(--line); background: var(--bg); }
+.detail-inner { padding: 14px 16px 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.col h3 { margin: 0 0 8px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.col h3 a.more { margin-left: auto; font-weight: 400; color: var(--accent); font-size: 12px; }
+.items { list-style: none; margin: 0; padding: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; max-height: 420px; overflow: auto; }
+.items li { display: flex; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.items li:last-child { border-bottom: 0; }
+.items li.focus { background: var(--sel); }
+.items li .body { flex: 1; min-width: 0; }
+.items li .t { display: block; overflow-wrap: anywhere; }
+.items li .meta { font-size: 12px; color: var(--muted); }
+.items .empty { color: var(--muted); padding: 10px; }
+.lbl { font-size: 11px; padding: 0 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); margin-right: 3px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 5px; }
+.dot.SUCCESS { background: var(--ok); } .dot.FAILURE, .dot.ERROR { background: var(--bad); }
+.dot.PENDING, .dot.EXPECTED { background: var(--warn); } .dot.none { background: var(--line); }
+.num-link { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+#empty, #loading { text-align: center; color: var(--muted); padding: 60px 0; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; width: 240px; margin: 12px auto; }
+.bar div { height: 100%; background: var(--accent); transition: width .3s; }
+.help { position: fixed; bottom: 12px; right: 16px; font-size: 12px; color: var(--muted); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bg); }
+.toast { position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+  padding: 8px 14px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+@media (max-width: 900px) {
+  .detail-inner { grid-template-columns: 1fr; }
+  .hide-sm { display: none; }
+  header { padding: 10px 16px; } main { padding: 12px 16px 60px; }
+  .help { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Repos</h1>
+  <div class="stats" id="stats"></div>
+  <div class="spacer"></div>
+  <input id="q" type="search" placeholder="Filter repos…  ( / )" autocomplete="off">
+  <div class="filters" id="filters">
+    <button data-f="active" aria-pressed="true" title="Hide repos with no issues, PRs or unreleased commits">Active</button>
+    <button data-f="issues" aria-pressed="false">Has issues</button>
+    <button data-f="prs" aria-pressed="false">Has PRs</button>
+    <button data-f="failing" aria-pressed="false">Failing PRs</button>
+    <button data-f="unreleased" aria-pressed="false">Unreleased</button>
+  </div>
+  <label title="Where the Claude buttons go">Claude:
+    <select id="claudeMode">
+      <option value="code">Claude Code (copy command)</option>
+      <option value="web">claude.ai (new chat)</option>
+    </select>
+  </label>
+  <button class="btn" id="refresh" title="Fetch fresh data from GitHub (R)">↻ Refresh</button>
+  <span id="status"></span>
+</header>
+<main>
+  <div id="loading">Loading…</div>
+  <table id="table" hidden>
+    <thead><tr>
+      <th data-k="repo">Repository</th>
+      <th data-k="issueCount" class="num">Issues</th>
+      <th data-k="prCount" class="num">PRs</th>
+      <th data-k="ahead" class="num">Unreleased</th>
+      <th data-k="release" class="hide-sm">Latest release</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="empty" hidden>No repos match.</div>
+  <section class="ignored-section" id="ignoredSection" hidden>
+    <h2>Ignored</h2>
+    <p class="hint">Patterns from the local <code>ignore</code> file. Matching orgs and repos are skipped on refresh.</p>
+    <pre id="ignoredContent"></pre>
+  </section>
+</main>
+<div class="help">
+  <kbd>/</kbd> filter · <kbd>j</kbd><kbd>k</kbd> move · <kbd>⏎</kbd> expand · <kbd>tab</kbd> next item ·
+  <kbd>g</kbd> GitHub · <kbd>c</kbd> Claude · <kbd>x</kbd> remove · <kbd>i</kbd><kbd>p</kbd><kbd>u</kbd> issues/PRs/compare
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// Keep sticky table headers just below the (wrapping) page header.
+new ResizeObserver(([e]) => document.documentElement.style.setProperty('--header-h', e.target.offsetHeight + 'px'))
+  .observe(document.querySelector('header'));
+const ICON = {
+  gh: '<svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>',
+  claude: '<svg viewBox="0 0 16 16"><path d="M8 0l1.6 5.2L15 3.1l-3.9 4.1L16 9.4l-5.3.6L12.4 16 8 11.9 3.6 16l1.7-6L0 9.4l4.9-2.2L1 3.1l5.4 2.1z"/></svg>',
+  delete: '<svg viewBox="0 0 16 16"><path d="M6.469 1h3.062c.146 0 .284.067.375.18l.75.938h3.219a.75.75 0 010 1.5H2.125a.75.75 0 010-1.5h3.219l.75-.938A.5.5 0 016.469 1zM4.25 4.5a.75.75 0 01.75.75v7.5a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75v-7.5a.75.75 0 011.5 0v7.5A2.25 2.25 0 0110.25 15h-4.5A2.25 2.25 0 013.5 12.75v-7.5a.75.75 0 01.75-.75zm2 2.25a.75.75 0 00-1.5 0v6a.75.75 0 001.5 0v-6zm3.5 0a.75.75 0 00-1.5 0v6a.75.75 0 001.5 0v-6z"/></svg>',
+};
+const FAIL = new Set(['FAILURE', 'ERROR']), PEND = new Set(['PENDING', 'EXPECTED']);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ghdash.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('ghdash.' + k, JSON.stringify(v)); } catch {} },
+};
+
+let data = null, view = [], sel = -1, open = new Set(store.get('open', [])), focusItem = -1;
+let sort = store.get('sort', { k: 'activity', dir: 'desc' });
+if (sort.k === 'pushedAt') sort = { k: 'activity', dir: 'desc' };
+const filters = store.get('filters', { active: true });
+
+function ago(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso)) / 1000;
+  for (const [n, u] of [[31536000, 'y'], [2592000, 'mo'], [86400, 'd'], [3600, 'h'], [60, 'm']])
+    if (s >= n) return Math.floor(s / n) + u;
+  return 'now';
+}
+function fullDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function prSummary(r) {
+  const c = { ok: 0, bad: 0, warn: 0 };
+  for (const p of r.prs) {
+    if (p.checks === 'SUCCESS') c.ok++;
+    else if (FAIL.has(p.checks)) c.bad++;
+    else if (PEND.has(p.checks)) c.warn++;
+  }
+  return c;
+}
+const ahead = r => r.unreleased?.ahead || 0;
+const activity = r => r.issueCount + r.prCount + ahead(r);
+
+// --- Claude --------------------------------------------------------------
+function claudePrompt(kind, r, item) {
+  switch (kind) {
+    case 'issue': return `In ${r.repo}, investigate and fix GitHub issue #${item.number} "${item.title}": ${item.url}`;
+    case 'pr': return FAIL.has(item.checks)
+      ? `In ${r.repo}, the checks on PR #${item.number} "${item.title}" are failing. Find out why and fix them: ${item.url}`
+      : `Review PR #${item.number} "${item.title}" in ${r.repo}: ${item.url}`;
+    case 'commit': return `Explain commit ${item.sha} "${item.message}" in ${r.repo}: ${item.url}`;
+    case 'release': return `Draft release notes for the next release of ${r.repo}, covering the ${ahead(r)} commit(s) on ${r.branch} since ${r.release.tag}: ${r.release.compareUrl}`;
+    default: return `Help me with the GitHub repo ${r.repo} (${r.url}). It has ${r.issueCount} open issues and ${r.prCount} open PRs.`;
+  }
+}
+function openClaude(prompt) {
+  if ($('#claudeMode').value === 'web') {
+    window.open('https://claude.ai/new?q=' + encodeURIComponent(prompt), '_blank');
+  } else {
+    const cmd = `claude ${shellQuote(prompt)}`;
+    navigator.clipboard.writeText(cmd).then(
+      () => toast('Copied claude command — paste in your terminal'),
+      () => window.prompt('Copy this command:', cmd));
+  }
+}
+const shellQuote = s => "'" + s.replace(/'/g, `'\\''`) + "'";
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// --- rendering -------------------------------------------------------------
+function actions(gh, kind, idx, sub) {
+  const deleteBtn = kind === 'repo'
+    ? `<button type="button" class="icon delete" data-ignore="${idx}" title="Remove from list — append to ignore (X)">${ICON.delete}</button>`
+    : '';
+  return `<a class="icon" href="${esc(gh)}" target="_blank" title="Open in GitHub">${ICON.gh}</a>` +
+    `<span class="icon" data-claude="${kind}" data-i="${idx}" ${sub != null ? `data-sub="${sub}"` : ''} title="Open in Claude">${ICON.claude}</span>` +
+    deleteBtn;
+}
+
+function renderIgnored() {
+  const section = $('#ignoredSection');
+  if (!data) { section.hidden = true; return; }
+  const content = data.ignoreFile ?? '';
+  const hasRules = (data.ignorePatterns || []).length > 0;
+  section.hidden = false;
+  if (!content.trim()) {
+    const el = $('#ignoredContent');
+    const html = 'No local <code>ignore</code> file yet — every admin repo is listed. '
+      + 'Copy <code>ignore.example</code> to <code>ignore</code>, or use the delete control on a row to create one.';
+    if (el.tagName === 'P') {
+      el.className = 'empty-ign';
+      el.innerHTML = html;
+    } else {
+      el.outerHTML = `<p class="empty-ign" id="ignoredContent">${html}</p>`;
+    }
+    return;
+  }
+  // Ensure we have a <pre> even if it was replaced by the empty state.
+  let el = $('#ignoredContent');
+  if (!el || el.tagName !== 'PRE') {
+    const p = el;
+    el = document.createElement('pre');
+    el.id = 'ignoredContent';
+    p.replaceWith(el);
+  }
+  if (!hasRules) {
+    el.innerHTML = content.split('\n').map(line => esc(line)).join('\n')
+      + '\n<span class="pat"># (no active patterns yet)</span>';
+    return;
+  }
+  el.innerHTML = content.split('\n').map(line => {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) return esc(line);
+    return `<span class="pat">${esc(line)}</span>`;
+  }).join('\n');
+}
+
+function applyView() {
+  if (!data) return;
+  const q = $('#q').value.trim().toLowerCase();
+  view = data.repos.filter(r => {
+    if (q && !(r.repo.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))) return false;
+    if (filters.active && !activity(r)) return false;
+    if (filters.issues && !r.issueCount) return false;
+    if (filters.prs && !r.prCount) return false;
+    if (filters.failing && !prSummary(r).bad) return false;
+    if (filters.unreleased && !ahead(r)) return false;
+    return true;
+  });
+  const val = r => ({ repo: r.repo.toLowerCase(), ahead: ahead(r), release: r.release?.publishedAt || '',
+    activity: activity(r) }[sort.k] ?? r[sort.k] ?? '');
+  const m = sort.dir === 'asc' ? 1 : -1;
+  view.sort((a, b) => (val(a) > val(b) ? m : val(a) < val(b) ? -m : a.repo.localeCompare(b.repo)));
+  document.querySelectorAll('th[data-k]').forEach(th => th.dataset.dir = th.dataset.k === sort.k ? sort.dir : '');
+  render();
+}
+
+function render() {
+  const rows = [];
+  view.forEach((r, i) => {
+    const s = prSummary(r), a = ahead(r), [owner, name] = r.repo.split('/');
+    const prCell = r.prCount
+      ? `${r.prCount}${s.ok ? `<span class="pill ok" title="checks passing">✓${s.ok}</span>` : ''}${s.bad ? `<span class="pill bad" title="checks failing">✗${s.bad}</span>` : ''}${s.warn ? `<span class="pill warn" title="checks pending">●${s.warn}</span>` : ''}`
+      : '<span class="zero">0</span>';
+    rows.push(`<tr class="repo${i === sel ? ' sel' : ''}" data-i="${i}">
+      <td><a class="name" href="${esc(r.url)}" target="_blank"><span class="owner">${esc(owner)}/</span>${esc(name)}</a>
+        ${r.private ? '<span class="badge">private</span>' : ''}${r.fork ? '<span class="badge">fork</span>' : ''}
+        ${r.description ? `<div class="desc">${esc(r.description)}</div>` : ''}</td>
+      <td class="num">${r.issueCount ? `<a href="${esc(r.url)}/issues" target="_blank">${r.issueCount}</a>` : '<span class="zero">0</span>'}</td>
+      <td class="num">${prCell}</td>
+      <td class="num">${a ? `<a href="${esc(r.release.compareUrl)}" target="_blank">${a}${r.unreleased.truncated ? '+' : ''}</a>` : r.unreleased?.error ? '<span class="zero" title="Compare failed">?</span>' : '<span class="zero">0</span>'}</td>
+      <td class="hide-sm">${r.release ? `<a class="tag" href="${esc(r.release.url)}" target="_blank">${esc(r.release.tag)}</a>${r.release.kind === 'tag'
+        ? `<span class="age" title="Latest tag (no GitHub release date)">(tag)</span>`
+        : `<span class="age" title="${esc(fullDate(r.release.publishedAt))}">(${esc(ago(r.release.publishedAt))})</span>`}` : '<span class="zero">—</span>'}</td>
+      <td class="actions">${actions(r.url, 'repo', i)}</td>
+    </tr>`);
+    if (open.has(r.repo)) rows.push(detail(r, i));
+  });
+  $('#rows').innerHTML = rows.join('');
+  $('#table').hidden = !view.length;
+  $('#empty').hidden = !!view.length;
+  renderIgnored();
+  markFocus();
+}
+
+async function ignoreRepo(i) {
+  const r = view[i];
+  if (!r || ignoreRepo.busy) return;
+  ignoreRepo.busy = true;
+  const tr = document.querySelector(`tr.repo[data-i="${i}"]`);
+  const detail = tr?.nextElementSibling?.classList.contains('detail') ? tr.nextElementSibling : null;
+  tr?.classList.add('slide-out');
+  detail?.classList.add('slide-out');
+  try {
+    const res = await fetch('/api/ignore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo: r.repo }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'ignore failed');
+    await new Promise(resolve => setTimeout(resolve, 280));
+    data.repos = data.repos.filter(x => x.repo !== r.repo);
+    data.ignorePatterns = body.patterns;
+    data.ignoreFile = body.content;
+    data.ignored = (data.ignored || 0) + 1;
+    open.delete(r.repo);
+    store.set('open', [...open]);
+    if (sel >= view.length - 1) sel = Math.max(0, view.length - 2);
+    toast(`Ignored ${r.repo}`);
+    renderStats();
+    applyView();
+  } catch (err) {
+    tr?.classList.remove('slide-out');
+    detail?.classList.remove('slide-out');
+    toast('Could not ignore: ' + err.message);
+  } finally {
+    ignoreRepo.busy = false;
+  }
+}
+
+function detail(r, i) {
+  const issues = r.issues.map((it, j) => `<li data-sub="issue:${j}">
+      <span class="num-link">#${it.number}</span>
+      <div class="body"><a class="t" href="${esc(it.url)}" target="_blank">${esc(it.title)}</a>
+        <div class="meta">${it.labels.map(l => `<span class="lbl">${esc(l)}</span>`).join('')}
+          ${esc(it.author || '')} · ${ago(it.updatedAt)}${it.comments ? ` · 💬 ${it.comments}` : ''}${it.assignees.length ? ` · → ${esc(it.assignees.join(', '))}` : ''}</div></div>
+      ${actions(it.url, 'issue', i, j)}</li>`).join('');
+  const prs = r.prs.map((p, j) => `<li data-sub="pr:${j}">
+      <span class="dot ${p.checks || 'none'}" title="checks: ${esc(p.checks || 'none')}"></span>
+      <div class="body"><a class="t" href="${esc(p.url)}" target="_blank">${esc(p.title)}</a>
+        <div class="meta">#${p.number} · ${esc(p.author || '')} · ${ago(p.updatedAt)}
+          ${p.draft ? ' · <b>draft</b>' : ''}${p.review === 'APPROVED' ? ' · ✓ approved' : p.review === 'CHANGES_REQUESTED' ? ' · changes requested' : ''}${p.mergeable === 'CONFLICTING' ? ' · <span style="color:var(--bad)">conflicts</span>' : ''}</div></div>
+      ${actions(p.url, 'pr', i, j)}</li>`).join('');
+  const u = r.unreleased;
+  const commits = (u?.commits || []).map((c, j) => `<li data-sub="commit:${j}">
+      <a class="num-link tag" href="${esc(c.url)}" target="_blank">${esc(c.sha)}</a>
+      <div class="body"><span class="t">${esc(c.pr ? c.message.replace(new RegExp(`\\s*\\(#${c.pr}\\)\\s*$`), '') : c.message)}</span>
+        <div class="meta">by @${esc(c.author)}${c.pr ? ` in <a href="${esc(r.url)}/pull/${c.pr}" target="_blank">#${c.pr}</a>` : ''} · ${ago(c.date)}</div></div>
+      ${actions(c.url, 'commit', i, j)}</li>`).join('');
+  const relHead = r.release
+    ? `Since <a class="tag" href="${esc(r.release.url)}" target="_blank">${esc(r.release.tag)}</a> on ${esc(r.branch)}
+       <span class="icon" data-claude="release" data-i="${i}" title="Draft release notes with Claude">${ICON.claude}</span>
+       <a class="more" href="${esc(r.release.compareUrl)}" target="_blank">compare →</a>`
+    : 'No releases';
+  return `<tr class="detail"><td colspan="6"><div class="detail-inner">
+    <div class="col"><h3>Issues (${r.issueCount}) <a class="more" href="${esc(r.url)}/issues" target="_blank">all →</a></h3>
+      <ul class="items">${issues || '<li class="empty">No open issues</li>'}</ul>
+      ${r.issueCount > r.issues.length ? `<div class="meta">Showing ${r.issues.length} most recently updated</div>` : ''}</div>
+    <div class="col"><h3>Pull requests (${r.prCount}) <a class="more" href="${esc(r.url)}/pulls" target="_blank">all →</a></h3>
+      <ul class="items">${prs || '<li class="empty">No open PRs</li>'}</ul></div>
+    <div class="col"><h3>${relHead}</h3>
+      <ul class="items">${u?.error ? `<li class="empty">Couldn't compare: ${esc(u.error)}</li>` : commits || `<li class="empty">${r.release ? 'Nothing unreleased' : 'Repo has no releases or tags'}</li>`}</ul>
+      ${u?.truncated ? '<div class="meta">GitHub returns at most 250 commits; open compare for the rest.</div>' : ''}</div>
+  </div></td></tr>`;
+}
+
+function renderStats() {
+  const t = data.repos.reduce((a, r) => {
+    a.i += r.issueCount; a.p += r.prCount; a.f += prSummary(r).bad; a.u += ahead(r) ? 1 : 0;
+    a.priv += r.private ? 1 : 0; return a;
+  }, { i: 0, p: 0, f: 0, u: 0, priv: 0 });
+  const ignored = data.ignored || 0;
+  const chip = (n, label, cls = '') =>
+    `<span class="stat${cls ? ' ' + cls : ''}"><span class="n">${n}</span><span class="l">${label}</span></span>`;
+  $('#stats').innerHTML =
+    chip(data.repos.length, 'repos') +
+    chip(t.i, 'issues') +
+    chip(t.p, 'PRs') +
+    (t.f ? chip(t.f, 'failing', 'bad-stat') : '') +
+    (t.u ? chip(t.u, 'unreleased', 'warn-stat') : chip(0, 'unreleased')) +
+    (ignored ? chip(ignored, 'ignored') : '') +
+    (t.priv ? chip(t.priv, 'private') : '');
+  $('#status').textContent = 'Updated ' + ago(data.generatedAt) + ' ago';
+  $('#status').title = fullDate(data.generatedAt);
+}
+
+// --- selection & keyboard ----------------------------------------------------
+function items() {
+  const tr = document.querySelector(`tr.repo[data-i="${sel}"]`);
+  const d = tr?.nextElementSibling?.classList.contains('detail') ? tr.nextElementSibling : null;
+  return d ? [...d.querySelectorAll('li[data-sub]')] : [];
+}
+function markFocus() {
+  document.querySelectorAll('li.focus').forEach(li => li.classList.remove('focus'));
+  const it = items()[focusItem];
+  if (it) { it.classList.add('focus'); it.scrollIntoView({ block: 'nearest' }); }
+}
+function select(i, scroll = true) {
+  sel = Math.max(0, Math.min(view.length - 1, i)); focusItem = -1;
+  document.querySelectorAll('tr.repo.sel').forEach(t => t.classList.remove('sel'));
+  const tr = document.querySelector(`tr.repo[data-i="${sel}"]`);
+  if (tr) { tr.classList.add('sel'); if (scroll) tr.scrollIntoView({ block: 'nearest' }); }
+  markFocus();
+}
+function toggle(i) {
+  const r = view[i]; if (!r) return;
+  open.has(r.repo) ? open.delete(r.repo) : open.add(r.repo);
+  store.set('open', [...open]); sel = i; focusItem = -1; render();
+}
+function current() {
+  const r = view[sel]; if (!r) return null;
+  const it = items()[focusItem];
+  if (!it) return { r, kind: 'repo', url: r.url };
+  const [kind, j] = it.dataset.sub.split(':');
+  const item = { issue: r.issues, pr: r.prs, commit: r.unreleased?.commits }[kind][+j];
+  return { r, kind, item, url: item.url };
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select')) {
+    if (e.key === 'Escape') e.target.blur();
+    if (e.key === 'Enter' && e.target.id === 'q') { e.target.blur(); select(0); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const c = current();
+  switch (e.key) {
+    case '/': e.preventDefault(); $('#q').focus(); $('#q').select(); break;
+    case 'j': case 'ArrowDown': e.preventDefault(); select(sel + 1); break;
+    case 'k': case 'ArrowUp': e.preventDefault(); select(sel - 1); break;
+    case 'Enter': case 'o': if (sel >= 0) { toggle(sel); select(sel); } break;
+    case 'Tab': {
+      const n = items().length; if (!n) return;
+      e.preventDefault(); focusItem = (focusItem + (e.shiftKey ? -1 : 1) + n + 1) % (n + 1) - 1; markFocus(); break;
+    }
+    case 'Escape': focusItem = -1; markFocus(); break;
+    case 'g': if (c) window.open(c.url, '_blank'); break;
+    case 'c': if (c) openClaude(claudePrompt(c.kind, c.r, c.item)); break;
+    case 'i': if (c) window.open(c.r.url + '/issues', '_blank'); break;
+    case 'p': if (c) window.open(c.r.url + '/pulls', '_blank'); break;
+    case 'u': if (c?.r.release) window.open(c.r.release.compareUrl, '_blank'); break;
+    case 'x': if (sel >= 0) ignoreRepo(sel); break;
+    case 'r': refresh(); break;
+  }
+});
+
+$('#rows').addEventListener('click', e => {
+  const ign = e.target.closest('[data-ignore]');
+  if (ign) { e.preventDefault(); e.stopPropagation(); ignoreRepo(+ign.dataset.ignore); return; }
+  const cl = e.target.closest('[data-claude]');
+  if (cl) {
+    const r = view[+cl.dataset.i], j = +cl.dataset.sub, kind = cl.dataset.claude;
+    const item = { issue: r.issues, pr: r.prs, commit: r.unreleased?.commits }[kind]?.[j];
+    openClaude(claudePrompt(kind, r, item)); return;
+  }
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr.repo');
+  if (tr) toggle(+tr.dataset.i);
+});
+
+document.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.k;
+  sort = { k, dir: sort.k === k && sort.dir === 'desc' ? 'asc' : k === 'repo' ? 'asc' : 'desc' };
+  store.set('sort', sort); applyView();
+}));
+document.querySelectorAll('#filters button').forEach(b => {
+  b.setAttribute('aria-pressed', !!filters[b.dataset.f]);
+  b.addEventListener('click', () => {
+    filters[b.dataset.f] = !filters[b.dataset.f];
+    b.setAttribute('aria-pressed', filters[b.dataset.f]);
+    store.set('filters', filters); sel = -1; applyView();
+  });
+});
+$('#q').addEventListener('input', () => { sel = -1; applyView(); });
+$('#claudeMode').value = store.get('claudeMode', 'code');
+$('#claudeMode').addEventListener('change', e => store.set('claudeMode', e.target.value));
+$('#refresh').addEventListener('click', refresh);
+
+// --- data loading ------------------------------------------------------------
+async function load() {
+  data = await (await fetch('/api/data')).json();
+  if (data) { $('#loading').hidden = true; renderStats(); applyView(); }
+}
+async function refresh() {
+  await fetch('/api/refresh', { method: 'POST' });
+  poll();
+}
+async function poll() {
+  const s = await (await fetch('/api/status')).json();
+  const btn = $('#refresh');
+  if (s.running) {
+    btn.disabled = true;
+    const pct = s.total ? Math.round(100 * s.done / s.total) : 0;
+    $('#status').textContent = `${s.phase}… ${s.total ? `${s.done}/${s.total}` : ''}`;
+    if (!data) $('#loading').innerHTML = `${esc(s.phase)}…<div class="bar"><div style="width:${pct}%"></div></div>${s.done}/${s.total || '?'}`;
+    setTimeout(poll, 1000);
+  } else {
+    btn.disabled = false;
+    if (s.error) { $('#status').textContent = 'Refresh failed: ' + s.error; return; }
+    await load();
+  }
+}
+
+load().then(poll);
+setInterval(() => data && !$('#refresh').disabled && renderStats(), 60000);
+</script>
+</body>
+</html>

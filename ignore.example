@@ -1,0 +1,16 @@
+# Ignore organisations and repositories when listing issues / refreshing the dashboard.
+# Copy this file to `ignore` (gitignored) and edit locally:
+#   cp ignore.example ignore
+#
+# Lines starting with # are comments. Blank lines are ignored.
+#
+# Organisations: "OrgName", "OrgName/*", or a GitHub URL
+#   e.g. my-org/*  https://github.com/my-org
+# Repositories: "owner/repo" or a GitHub URL
+#   e.g. owner/old-repo  https://github.com/owner/old-repo
+
+# Organisations
+# my-org/*
+
+# Repositories
+# owner/repo
